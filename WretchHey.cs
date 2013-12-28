@@ -11,62 +11,56 @@ namespace WretchHey {
 			List<WretchAlbum> albums = new List<WretchAlbum>();
 			WebClient wc = new WebClient();
 			Regex regCovers = new Regex(@"http://\w+\.wretch\.yimg\.com/(\w+)/(\d+)/thumbs/t(\d+)\.jpg");
-			string album_html_content, account;
+			string album_html_content;
 
 			if (args.Length < 1) {
 				Console.WriteLine("[-] Usage: WretchHey [Wretch ID]");
 				return;
 			}
-
-			account = args[0];
-
-			try {
-				byte[] buff = wc.DownloadData("http://webcache.googleusercontent.com/search?q=cache:www.wretch.cc/album/" + account);
-				album_html_content = Encoding.UTF8.GetString(buff);
-			}
-			catch (WebException) {
-				Console.WriteLine(string.Format("[-] Can't get '{0}' :(", account));
-				return;
-			}
-			if (regCovers.IsMatch(album_html_content)) {
-				foreach (Match item in regCovers.Matches(album_html_content)) {
-					// string account = item.Groups[1].Value;
-					string aid     = item.Groups[2].Value;
-					string pid     = item.Groups[3].Value;
-					albums.Add(new WretchAlbum(account, aid, pid));
+			
+			foreach (string account in args) {
+				try {
+					byte[] buff = wc.DownloadData("http://webcache.googleusercontent.com/search?q=cache:www.wretch.cc/album/" + account);
+					album_html_content = Encoding.UTF8.GetString(buff);
 				}
-				string base_path = Path.Combine(Environment.CurrentDirectory, account);
-				if (!Directory.Exists(base_path))
-					Directory.CreateDirectory(base_path);
-				foreach (WretchAlbum item in albums) {
-					string path = Path.Combine(base_path, item.ID);
-					string url = item.Cover();
-					string name = item.CoverName();
-					if (!Directory.Exists(path))
-						Directory.CreateDirectory(path);
-					Console.WriteLine(string.Format("[+] Save to: {0}", path));
-					Console.WriteLine(string.Format("[+] Downloading: {0}", url));
-					try {
-						wc.DownloadFile(url, Path.Combine(path, name));
+				catch (WebException) {
+					Console.WriteLine(string.Format("[-] Can't get '{0}' :(", account));
+					continue;
+				}
+				if (regCovers.IsMatch(album_html_content)) {
+					foreach (Match item in regCovers.Matches(album_html_content)) {
+						// string account = item.Groups[1].Value;
+						string aid     = item.Groups[2].Value;
+						string pid     = item.Groups[3].Value;
+						albums.Add(new WretchAlbum(account, aid, pid));
 					}
-					catch (WebException) {
-						File.Delete(Path.Combine(path, name));
-					}
-					int d = 1; // 1 for prev, 2 for next
-					int trying = 0;
-					while (true) {
-						url = (d == 1) ? item.Prev() : item.Next();
-						name = (d == 1) ? item.PrevName() : item.NextName();
+					string base_path = Path.Combine(Environment.CurrentDirectory, account);
+					if (!Directory.Exists(base_path))
+						Directory.CreateDirectory(base_path);
+					foreach (WretchAlbum item in albums) {
+						string path = Path.Combine(base_path, item.ID);
+						string url = item.Cover();
+						string name = item.CoverName();
+						if (!Directory.Exists(path))
+							Directory.CreateDirectory(path);
+						Console.WriteLine(string.Format("[+] Save to: {0}", path));
+						Console.WriteLine(string.Format("[+] Downloading: {0}", url));
 						try {
-							Console.WriteLine(string.Format("[+] Downloading: {0}", url));
 							wc.DownloadFile(url, Path.Combine(path, name));
 						}
 						catch (WebException) {
-							trying++;
 							File.Delete(Path.Combine(path, name));
-							if (trying >= 8) {
-								// we try 8 times then change a direction or exit this album
-								trying = 0;
+						}
+						int d = 1; // 1 for prev, 2 for next
+						while (true) {
+							url = (d == 1) ? item.Prev() : item.Next();
+							name = (d == 1) ? item.PrevName() : item.NextName();
+							try {
+								Console.WriteLine(string.Format("[+] Downloading: {0}", url));
+								wc.DownloadFile(url, Path.Combine(path, name));
+							}
+							catch (WebException) {
+								File.Delete(Path.Combine(path, name));
 								if (d == 1)
 									d = 2;
 								else
@@ -74,9 +68,9 @@ namespace WretchHey {
 							}
 						}
 					}
+				} else {
+					Console.WriteLine("[*] No albums can read :(");
 				}
-			} else {
-				Console.WriteLine("[*] No albums can read :(");
 			}
 		}
 	}
