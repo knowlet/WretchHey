@@ -53,6 +53,7 @@ namespace WretchHey {
 						File.Delete(Path.Combine(path, name));
 					}
 					int d = 1; // 1 for prev, 2 for next
+					int trying = 0;
 					while (true) {
 						url = (d == 1) ? item.Prev() : item.Next();
 						name = (d == 1) ? item.PrevName() : item.NextName();
@@ -61,11 +62,16 @@ namespace WretchHey {
 							wc.DownloadFile(url, Path.Combine(path, name));
 						}
 						catch (WebException) {
+							trying++;
 							File.Delete(Path.Combine(path, name));
-							if (d == 1)
-								d = 2;
-							else
-								break;
+							if (trying >= 8) {
+								// we try 8 times then change a direction or exit this album
+								trying = 0;
+								if (d == 1)
+									d = 2;
+								else
+									break;
+							}
 						}
 					}
 				}
